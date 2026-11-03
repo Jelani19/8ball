@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deep Sea Catcher - Arcade Fishing</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body {
+            background-color: #050b14;
+            color: #ffffff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        #game-container {
+            position: relative;
+            width: 1000px;
+            height: 650px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8), 0 0 40px rgba(0, 180, 216, 0.2);
+            border-radius: 16px;
+            overflow: hidden;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Glassmorphism UI Components */
+        .glass-panel {
+            background: rgba(10, 25, 47, 0.65);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 12px;
+            color: #fff;
+        }
+
+        #top-bar {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            right: 15px;
+            padding: 12px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 10;
+        }
+
+        .stat-box {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+
+        .stat-icon {
+            font-size: 1.3rem;
+        }
+
+        .gold-text { color: #ffd700; text-shadow: 0 0 10px rgba(255, 215, 0, 0.4); }
+        .score-text { color: #00f2fe; text-shadow: 0 0 10px rgba(0, 242, 254, 0.4); }
+
+        .btn {
+            background: linear-gradient(135deg, #00b4d8, #0077b6);
+            border: none;
+            color: white;
+            padding: 8px 18px;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 15px rgba(0, 180, 216, 0.3);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 180, 216, 0.5);
+            background: linear-gradient(135deg, #90e0ef, #00b4d8);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        /* Reeling Minigame HUD */
+        #reel-hud {
+            position: absolute;
+            right: 30px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 40px;
+            height: 240px;
+            background: rgba(0, 0, 0, 0.5);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 20px;
+            overflow: hidden;
+            display: none;
+            z-index: 10;
+        }
+
+        #tension-bar {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 0%;
+            background: linear-gradient(to top, #00ff88, #ffbd03, #ff2e93);
+            transition: height 0.05s linear;
+        }
+
+        #target-zone {
+            position: absolute;
+            width: 100%;
+            height: 35%;
+            top: 30%;
+            background: rgba(255, 255, 255, 0.3);
+            border-top: 2px solid #fff;
+            border-bottom: 2px solid #fff;
+            box-shadow: 0 0 10px rgba(255,255,255,0.5);
+        }
+
+        /* Modal Screens */
+        .modal {
+            position: absolute;
+            inset: 0;
+            background: rgba(4, 12, 24, 0.85);
+            backdrop-filter: blur(10px);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 20;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .modal.active {
+            display: flex;
+            opacity: 1;
+        }
+
+        .modal-content {
+            width: 80%;
+            max-width: 600px;
+            max-height: 80%;
+            padding: 30px;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .modal-title {
+            font-size: 1.8rem;
+            margin-bottom: 20px;
+            text-align: center;
+            color: #00f2fe;
+            text-shadow: 0 0 10px rgba(0, 242, 254, 0.3);
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            background: none;
+            border: none;
+            color: #fff;
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+
+        /* Shop Grid */
+        .upgrade-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .upgrade-card {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+
+        .upgrade-info h4 { font-size: 1.1rem; color: #ffd700; }
+        .upgrade-info p { font-size: 0.85rem; color: #a0aec0; margin-top: 4px; }
+
+        /* Catch Popup */
+        #catch-popup {
+            position: absolute;
+            top: 45%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.7);
+            padding: 25px 40px;
+            text-align: center;
+            display: none;
+            z-index: 15;
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.27);
+        }
+
+        #catch-popup.active {
+            display: block;
+            transform: translate(-50%, -50%) scale(1);
+        }
+
+        #catch-name { font-size: 1.8rem; font-weight: bold; margin: 10px 0; }
+        #catch-rarity { font-size: 0.9rem; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; }
+
+        /* Controls Hint Overlay */
+        #controls-hint {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 10px 20px;
+            font-size: 0.9rem;
+            pointer-events: none;
+            opacity: 0.8;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); }
+        ::-webkit-scrollbar-thumb { background: rgba(0,180,216,0.5); border-radius: 3px; }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <!-- Canvas Layer -->
+        <canvas id="gameCanvas" width="1000" height="650"></canvas>
+
+        <!-- Top HUD -->
+        <div id="top-bar" class="glass-panel">
+            <div class="stat-box"><span class="stat-icon">🪙</span> Gold: <span id="gold-display" class="gold-text">0</span></div>
+            <div class="stat-box"><span class="stat-icon">⭐</span> Score: <span id="score-display" class="score-text">0</span></div>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn" id="shop-btn">🏪 Shop</button>
+            </div>
+        </div>
+
+        <!-- Reel Tension Meter -->
+        <div id="reel-hud">
+            <div id="target-zone"></div>
+            <div id="tension-bar"></div>
+        </div>
+
+        <!-- Catch Popup -->
+        <div id="catch-popup" class="glass-panel">
+            <div id="catch-rarity">COMMON</div>
+            <div id="catch-name">Goldfish</div>
+            <div style="margin-top: 10px; font-size: 1.1rem; color: #ffd700;" id="catch-value">+50 Gold</div>
+        </div>
+
+        <!-- Controls Hint -->
+        <div id="controls-hint" class="glass-panel">
+            <strong>Click & Hold</strong> or press <strong>SPACEBAR</strong> to cast & reel!
+        </div>
+
+        <!-- Shop Modal -->
+        <div id="shop-modal" class="modal">
+            <div class="modal-content glass-panel">
+                <button class="close-btn" id="close-shop">&times;</button>
+                <h2 class="modal-title">Tackle Shop</h2>
+                <div class="upgrade-grid">
+                    <div class="upgrade-card">
+                        <div class="upgrade-info">
+                            <h4>Line Strength (Lvl <span id="rod-lvl">1</span>)</h4>
+                            <p>Increases line tension tolerance during reeling.</p>
+                        </div>
+                        <button class="btn" id="upgrade-rod">Upgrade (100G)</button>
+                    </div>
+                    <div class="upgrade-card">
+                        <div class="upgrade-info">
+                            <h4>Bait Quality (Lvl <span id="bait-lvl">1</span>)</h4>
+                            <p>Increases chances of attracting Rare & Legendary fish.</p>
+                        </div>
+                        <button class="btn" id="upgrade-bait">Upgrade (150G)</button>
+                    </div>
+                    <div class="upgrade-card">
+                        <div class="upgrade-info">
+                            <h4>Reel Speed (Lvl <span id="reel-lvl">1</span>)</h4>
+                            <p>Reels in hooked fish significantly faster.</p>
+                        </div>
+                        <button class="btn" id="upgrade-reel">Upgrade (125G)</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- GAME CONFIG & STATE ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const STATE = { IDLE: 'IDLE', CHARGING: 'CHARGING', CASTING: 'CASTING', WAITING: 'WAITING', REELING: 'REELING', CAUGHT: 'CAUGHT' };
+        let currentState = STATE.IDLE;
+
+        let gameState = {
+            gold: 0,
+            score: 0,
+            upgrades: { rod: 1, bait: 1, reel: 1 }
+        };
+
+        // Mechanics Variables
+        let castPower = 0;
+        let powerDir = 1;
+        let hook = { x: 250, y: 180, targetY: 180, speed: 4 };
+        let tension = 30; // 0 - 100
+        let targetZoneY = 30; // Percentage 0 - 65
+        let hookedFish = null;
+        let catchProgress = 0; // 0 to 100
+
+        // Visual Effects Arrays
+        let particles = [];
+        let bubbles = [];
+        let floatingTexts = [];
+        let seaweedList = [];
+
+        const WATER_LEVEL = 180;
+
+        // --- FISH SPECIES DATA ---
+        const FISH_TYPES = [
+            { id: 'goldfish', name: 'Minnow', rarity: 'Common', color: '#ff9f43', size: 14, speed: 2, depthMin: 220, depthMax: 400, baseValue: 20 },
+            { id: 'bass', name: 'Ocean Bass', rarity: 'Common', color: '#10ac84', size: 22, speed: 1.8, depthMin: 250, depthMax: 500, baseValue: 45 },
+            { id: 'angel', name: 'Prismatic Angelfish', rarity: 'Uncommon', color: '#00d2d3', size: 26, speed: 2.3, depthMin: 300, depthMax: 580, baseValue: 90 },
+            { id: 'ruby', name: 'Crimson Snapper', rarity: 'Rare', color: '#ee5253', size: 30, speed: 2.8, depthMin: 350, depthMax: 600, baseValue: 180 },
+            { id: 'jelly', name: 'Glow Jellyfish', rarity: 'Rare', color: '#5f27cd', size: 24, speed: 1.2, depthMin: 400, depthMax: 620, baseValue: 250, glowing: true },
+            { id: 'marlin', name: 'Golden Marlin', rarity: 'Legendary', color: '#ff9f43', size: 40, speed: 3.5, depthMin: 450, depthMax: 620, baseValue: 600, legendary: true }
+        ];
+
+        const RARITY_COLORS = {
+            'Common': '#a0aec0',
+            'Uncommon': '#2ed573',
+            'Rare': '#1e90ff',
+            'Legendary': '#ffa500'
+        };
+
+        let fishArray = [];
+
+        // --- INITIALIZATION ---
+        function init() {
+            // Spawn initial seaweed
+            for (let i = 0; i < 15; i++) {
+                seaweedList.push({
+                    x: Math.random() * canvas.width,
+                    height: 80 + Math.random() * 120,
+                    segments: 6,
+                    offset: Math.random() * Math.PI * 2
+                });
+            }
+
+            // Spawn ambient bubbles
+            for (let i = 0; i < 25; i++) {
+                bubbles.push({
+                    x: Math.random() * canvas.width,
+                    y: WATER_LEVEL + Math.random() * (canvas.height - WATER_LEVEL),
+                    radius: 1 + Math.random() * 3,
+                    speed: 0.5 + Math.random() * 1.2,
+                    wobble: Math.random() * Math.PI * 2
+                });
+            }
+
+            // Populate fish pool
+            for (let i = 0; i < 10; i++) {
+                spawnFish();
+            }
+
+            // Input Event Listeners
+            window.addEventListener('keydown', (e) => { if (e.code === 'Space') handleInputStart(); });
+            window.addEventListener('keyup', (e) => { if (e.code === 'Space') handleInputEnd(); });
+            canvas.addEventListener('mousedown', handleInputStart);
+            canvas.addEventListener('mouseup', handleInputEnd);
+
+            // UI Listeners
+            document.getElementById('shop-btn').addEventListener('click', () => toggleModal('shop-modal', true));
+            document.getElementById('close-shop').addEventListener('click', () => toggleModal('shop-modal', false));
+            document.getElementById('upgrade-rod').addEventListener('click', () => buyUpgrade('rod', 100));
+            document.getElementById('upgrade-bait').addEventListener('click', () => buyUpgrade('bait', 150));
+            document.getElementById('upgrade-reel').addEventListener('click', () => buyUpgrade('reel', 125));
+
+            // Start Game Loop
+            requestAnimationFrame(gameLoop);
+        }
+
+        // --- SPAWN LOGIC ---
+        function spawnFish() {
+            // Bait level increases rare spawn chance
+            const baitMod = gameState.upgrades.bait * 0.08;
+            const rand = Math.random();
+            let selectedType;
+
+            if (rand < 0.05 + baitMod / 2) selectedType = FISH_TYPES[5]; // Legendary Marlin
+            else if (rand < 0.20 + baitMod) selectedType = FISH_TYPES[Math.random() > 0.5 ? 3 : 4]; // Rare
+            else if (rand < 0.50 + baitMod) selectedType = FISH_TYPES[2]; // Uncommon
+            else selectedType = FISH_TYPES[Math.random() > 0.5 ? 0 : 1]; // Common
+
+            const direction = Math.random() > 0.5 ? 1 : -1;
+            fishArray.push({
+                ...selectedType,
+                x: direction === 1 ? -50 : canvas.width + 50,
+                y: selectedType.depthMin + Math.random() * (selectedType.depthMax - selectedType.depthMin),
+                dir: direction,
+                wobble: Math.random() * Math.PI * 2
+            });
+        }
+
+        // --- INPUT HANDLERS ---
+        let isPressed = false;
+
+        function handleInputStart() {
+            if (isPressed) return;
+            isPressed = true;
+
+            if (currentState === STATE.IDLE) {
+                currentState = STATE.CHARGING;
+                castPower = 0;
+            } else if (currentState === STATE.REELING) {
+                // Applied in reeling update step
+            }
+        }
+
+        function handleInputEnd() {
+            isPressed = false;
+
+            if (currentState === STATE.CHARGING) {
+                currentState = STATE.CASTING;
+                hook.x = 300 + (castPower / 100) * 600; // Distance based on power
+                hook.targetY = WATER_LEVEL + 100 + (castPower / 100) * (canvas.height - WATER_LEVEL - 150);
+                hook.y = WATER_LEVEL;
+                createSplash(hook.x, WATER_LEVEL);
+            }
+        }
+
+        // --- UPGRADE SYSTEM ---
+        function buyUpgrade(type, baseCost) {
+            const cost = Math.floor(baseCost * Math.pow(1.5, gameState.upgrades[type] - 1));
+            if (gameState.gold >= cost) {
+                gameState.gold -= cost;
+                gameState.upgrades[type]++;
+                updateUI();
+                
+                // Update Button Texts
+                document.getElementById(`${type}-lvl`).innerText = gameState.upgrades[type];
+                document.getElementById(`upgrade-${type}`).innerText = `Upgrade (${Math.floor(baseCost * Math.pow(1.5, gameState.upgrades[type] - 1))}G)`;
+            }
+        }
+
+        function updateUI() {
+            document.getElementById('gold-display').innerText = gameState.gold;
+            document.getElementById('score-display').innerText = gameState.score;
+        }
+
+        function toggleModal(id, show) {
+            const modal = document.getElementById(id);
+            if (show) modal.classList.add('active');
+            else modal.classList.remove('active');
+        }
+
+        // --- PARTICLE SYSTEMS ---
+        function createSplash(x, y) {
+            for (let i = 0; i < 18; i++) {
+                particles.push({
+                    x: x, y: y,
+                    vx: (Math.random() - 0.5) * 6,
+                    vy: -Math.random() * 5 - 2,
+                    radius: 2 + Math.random() * 3,
+                    color: '#ffffff',
+                    alpha: 1,
+                    decay: 0.03
+                });
+            }
+        }
+
+        function createFloatingText(text, x, y, color = '#ffd700') {
+            floatingTexts.push({ text, x, y, alpha: 1, color });
+        }
+
+        // --- MAIN GAME LOOP ---
+        let lastTime = performance.now();
+        function gameLoop(time) {
+            const dt = (time - lastTime) / 1000;
+            lastTime = time;
+
+            update(dt);
+            render();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // --- UPDATE LOGIC ---
+        function update(dt) {
+            // Power Meter Logic
+            if (currentState === STATE.CHARGING) {
+                castPower += powerDir * 120 * dt;
+                if (castPower >= 100) { castPower = 100; powerDir = -1; }
+                if (castPower <= 0) { castPower = 0; powerDir = 1; }
+            }
+
+            // Hook Descent Logic
+            if (currentState === STATE.CASTING) {
+                hook.y += hook.speed;
+                if (hook.y >= hook.targetY) {
+                    hook.y = hook.targetY;
+                    currentState = STATE.WAITING;
+                }
+            }
+
+            // Fish Logic & Collision
+            fishArray.forEach((fish, index) => {
+                fish.x += fish.dir * fish.speed;
+                fish.wobble += 0.05;
+
+                // Respawn out-of-bounds fish
+                if ((fish.dir === 1 && fish.x > canvas.width + 60) || (fish.dir === -1 && fish.x < -60)) {
+                    fishArray.splice(index, 1);
+                    spawnFish();
+                }
+
+                // Check Hook Collision in WAITING state
+                if (currentState === STATE.WAITING) {
+                    const dist = Math.hypot(fish.x - hook.x, fish.y - hook.y);
+                    if (dist < fish.size + 10) {
+                        // Hook Fish!
+                        hookedFish = fish;
+                        fishArray.splice(index, 1);
+                        currentState = STATE.REELING;
+                        document.getElementById('reel-hud').style.display = 'block';
+                        tension = 30;
+                        catchProgress = 30;
+                    }
+                }
+            });
+
+            // Reeling Minigame Logic
+            if (currentState === STATE.REELING) {
+                // Tension Control Mechanics
+                const rodTolerance = gameState.upgrades.rod * 0.15;
+                if (isPressed) {
+                    tension += (1.2 - rodTolerance) * 60 * dt;
+                } else {
+                    tension -= 45 * dt;
+                }
+
+                // Move Target Safety Zone smoothly
+                targetZoneY += Math.sin(Date.now() * 0.003) * 0.5;
+
+                // Check if tension is in target safety zone
+                const targetMin = targetZoneY;
+                const targetMax = targetZoneY + 35;
+                const tensionPct = 100 - tension; // inverted visually
+
+                const reelSpeedBonus = 1 + (gameState.upgrades.reel - 1) * 0.25;
+
+                if (tensionPct >= targetMin && tensionPct <= targetMax) {
+                    catchProgress += 25 * reelSpeedBonus * dt;
+                } else {
+                    catchProgress -= 15 * dt;
+                }
+
+                // UI Tension Meter Update
+                document.getElementById('tension-bar').style.height = `${tension}%`;
+                document.getElementById('target-zone').style.top = `${targetZoneY}%`;
+
+                // Snap Line / Lose Fish Conditions
+                if (tension >= 100 || tension <= 0 || catchProgress <= 0) {
+                    // Snap / Lose
+                    currentState = STATE.IDLE;
+                    document.getElementById('reel-hud').style.display = 'none';
+                    createFloatingText("Line Snapped!", hook.x, hook.y - 20, "#ff4757");
+                    spawnFish();
+                }
+
+                // Catch Success Condition
+                if (catchProgress >= 100) {
+                    currentState = STATE.CAUGHT;
+                    document.getElementById('reel-hud').style.display = 'none';
+                    
+                    // Reward Calculation
+                    const goldEarned = hookedFish.baseValue;
+                    gameState.gold += goldEarned;
+                    gameState.score += goldEarned * 2;
+                    updateUI();
+
+                    createSplash(hook.x, WATER_LEVEL);
+                    createFloatingText(`+${goldEarned}G`, hook.x, hook.y - 30, "#ffd700");
+
+                    // Show Catch Card
+                    const popup = document.getElementById('catch-popup');
+                    document.getElementById('catch-name').innerText = hookedFish.name;
+                    document.getElementById('catch-rarity').innerText = hookedFish.rarity;
+                    document.getElementById('catch-rarity').style.color = RARITY_COLORS[hookedFish.rarity];
+                    document.getElementById('catch-value').innerText = `+${goldEarned} Gold`;
+                    popup.classList.add('active');
+
+                    setTimeout(() => {
+                        popup.classList.remove('active');
+                        currentState = STATE.IDLE;
+                        spawnFish();
+                    }, 2200);
+                }
+            }
+
+            // Update Bubbles
+            bubbles.forEach(b => {
+                b.y -= b.speed;
+                b.x += Math.sin(b.wobble) * 0.5;
+                b.wobble += 0.03;
+                if (b.y < WATER_LEVEL) {
+                    b.y = canvas.height + 10;
+                    b.x = Math.random() * canvas.width;
+                }
+            });
+
+            // Update Particles
+            particles.forEach((p, index) => {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.vy += 0.15; // Gravity
+                p.alpha -= p.decay;
+                if (p.alpha <= 0) particles.splice(index, 1);
+            });
+
+            // Update Floating Texts
+            floatingTexts.forEach((ft, index) => {
+                ft.y -= 1;
+                ft.alpha -= 0.015;
+                if (ft.alpha <= 0) floatingTexts.splice(index, 1);
+            });
+        }
+
+        // --- RENDER LOGIC ---
+        function render() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 1. Draw Sky & Atmosphere
+            const skyGradient = ctx.createLinearGradient(0, 0, 0, WATER_LEVEL);
+            skyGradient.addColorStop(0, '#0f2027');
+            skyGradient.addColorStop(1, '#203a43');
+            ctx.fillStyle = skyGradient;
+            ctx.fillRect(0, 0, canvas.width, WATER_LEVEL);
+
+            // Sun / Ambient Light
+            ctx.beginPath();
+            ctx.arc(800, 60, 80, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+            ctx.fill();
+
+            // 2. Draw Dock & Fisherman Silhouette
+            ctx.fillStyle = '#1e272e';
+            ctx.fillRect(0, WATER_LEVEL - 25, 220, 25); // Wooden Dock
+            ctx.fillRect(40, WATER_LEVEL - 80, 20, 60); // Pier post
+
+            // Rod Beam
+            ctx.strokeStyle = '#d2dae2';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(180, WATER_LEVEL - 25);
+            ctx.lineTo(250, WATER_LEVEL - 80);
+            ctx.stroke();
+
+            // 3. Draw Water Deep Gradient
+            const waterGradient = ctx.createLinearGradient(0, WATER_LEVEL, 0, canvas.height);
+            waterGradient.addColorStop(0, '#005bea');
+            waterGradient.addColorStop(0.5, '#002244');
+            waterGradient.addColorStop(1, '#000814');
+            ctx.fillStyle = waterGradient;
+            ctx.fillRect(0, WATER_LEVEL, canvas.width, canvas.height - WATER_LEVEL);
+
+            // 4. Animated Water Caustics / Surface Light Streaks
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.03)';
+            for (let i = 0; i < 5; i++) {
+                ctx.beginPath();
+                const offset = Math.sin(Date.now() * 0.001 + i) * 50;
+                ctx.ellipse(200 + i * 180 + offset, WATER_LEVEL + 40, 120, 8, 0, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // 5. Swaying Seaweed (Foreground / Background layer)
+            seaweedList.forEach(s => {
+                ctx.beginPath();
+                ctx.moveTo(s.x, canvas.height);
+                const sway = Math.sin(Date.now() * 0.002 + s.offset) * 25;
+                ctx.quadraticCurveTo(s.x + sway, canvas.height - s.height / 2, s.x + sway / 2, canvas.height - s.height);
+                ctx.lineWidth = 8;
+                ctx.strokeStyle = 'rgba(16, 172, 132, 0.4)';
+                ctx.lineCap = 'round';
+                ctx.stroke();
+            });
+
+            // 6. Draw Ambient Bubbles
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+            bubbles.forEach(b => {
+                ctx.beginPath();
+                ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            // 7. Draw Swimming Fish
+            fishArray.forEach(fish => drawFish(fish));
+
+            // 8. Draw Hook & Line
+            if (currentState !== STATE.IDLE && currentState !== STATE.CHARGING) {
+                // Fishing Line Curve
+                ctx.beginPath();
+                ctx.moveTo(250, WATER_LEVEL - 80);
+                const controlX = (250 + hook.x) / 2;
+                ctx.quadraticCurveTo(controlX, hook.y - 20, hook.x, hook.y);
+                ctx.strokeStyle = currentState === STATE.REELING ? (tension > 75 ? '#ff4757' : '#ffffff') : 'rgba(255, 255, 255, 0.6)';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+
+                // Draw Hook/Bait
+                ctx.beginPath();
+                ctx.arc(hook.x, hook.y, 4, 0, Math.PI * 2);
+                ctx.fillStyle = '#ff6b6b';
+                ctx.fill();
+
+                // Hook J-shape
+                ctx.beginPath();
+                ctx.arc(hook.x - 3, hook.y + 4, 4, 0, Math.PI);
+                ctx.strokeStyle = '#d2dae2';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Draw Hooked Fish if reeling
+                if (currentState === STATE.REELING && hookedFish) {
+                    hookedFish.x = hook.x + 10;
+                    hookedFish.y = hook.y + 10;
+                    drawFish(hookedFish);
+                }
+            }
+
+            // 9. Power Meter Overlay (During Charging)
+            if (currentState === STATE.CHARGING) {
+                const meterWidth = 140;
+                const meterHeight = 16;
+                const meterX = 180;
+                const meterY = WATER_LEVEL - 120;
+
+                // Frame
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+                ctx.fillRect(meterX - 2, meterY - 2, meterWidth + 4, meterHeight + 4);
+
+                // Bar
+                const fillWidth = (castPower / 100) * meterWidth;
+                const powerGradient = ctx.createLinearGradient(meterX, 0, meterX + meterWidth, 0);
+                powerGradient.addColorStop(0, '#00ff88');
+                powerGradient.addColorStop(0.7, '#ffbd03');
+                powerGradient.addColorStop(1, '#ff2e93');
+
+                ctx.fillStyle = powerGradient;
+                ctx.fillRect(meterX, meterY, fillWidth, meterHeight);
+            }
+
+            // 10. Draw Water Waves Surface
+            ctx.beginPath();
+            ctx.moveTo(0, WATER_LEVEL);
+            for (let x = 0; x <= canvas.width; x += 40) {
+                const waveY = Math.sin(x * 0.01 + Date.now() * 0.003) * 3;
+                ctx.lineTo(x, WATER_LEVEL + waveY);
+            }
+            ctx.lineTo(canvas.width, canvas.height);
+            ctx.lineTo(0, canvas.height);
+            ctx.fillStyle = 'rgba(0, 180, 216, 0.15)';
+            ctx.fill();
+
+            // 11. Render Particles
+            particles.forEach(p => {
+                ctx.save();
+                ctx.globalAlpha = p.alpha;
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            });
+
+            // 12. Render Floating Text Effects
+            floatingTexts.forEach(ft => {
+                ctx.save();
+                ctx.globalAlpha = ft.alpha;
+                ctx.font = 'bold 18px Segoe UI';
+                ctx.fillStyle = ft.color;
+                ctx.fillText(ft.text, ft.x, ft.y);
+                ctx.restore();
+            });
+        }
+
+        // Helper procedural fish renderer
+        function drawFish(fish) {
+            ctx.save();
+            ctx.translate(fish.x, fish.y);
+            if (fish.dir === -1) ctx.scale(-1, 1);
+
+            // Legendary Glow Aura
+            if (fish.glowing || fish.legendary) {
+                ctx.shadowColor = fish.color;
+                ctx.shadowBlur = 15;
+            }
+
+            // Tail movement
+            const tailWobble = Math.sin(Date.now() * 0.01 * fish.speed + fish.wobble) * 8;
+
+            // Tail Fin
+            ctx.beginPath();
+            ctx.moveTo(-fish.size, 0);
+            ctx.lineTo(-fish.size - 12, -8 + tailWobble);
+            ctx.lineTo(-fish.size - 12, 8 + tailWobble);
+            ctx.closePath();
+            ctx.fillStyle = fish.color;
+            ctx.fill();
+
+            // Body Oval
+            ctx.beginPath();
+            ctx.ellipse(0, 0, fish.size, fish.size * 0.55, 0, 0, Math.PI * 2);
+            ctx.fillStyle = fish.color;
+            ctx.fill();
+
+            // Eye
+            ctx.beginPath();
+            ctx.arc(fish.size * 0.5, -fish.size * 0.15, Math.max(2, fish.size * 0.12), 0, Math.PI * 2);
+            ctx.fillStyle = '#ffffff';
+            ctx.fill();
+
+            ctx.beginPath();
+            ctx.arc(fish.size * 0.5 + 1, -fish.size * 0.15, Math.max(1, fish.size * 0.06), 0, Math.PI * 2);
+            ctx.fillStyle = '#000000';
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        // Initialize Application
+        window.onload = init;
+    </script>
+</body>
+</html>
